@@ -24,6 +24,9 @@ jobs:
       - name: Apply speed and Traditional Chinese patch
         run: python3 patch_speed.py source
 
+      - name: Apply UI localization and keyboard patch
+        run: python3 patch_ui.py source
+
       - name: Build unsigned IPA
         uses: maxim-lobanov/setup-xcode@v1
         with:
