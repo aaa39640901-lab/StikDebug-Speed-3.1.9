@@ -27,6 +27,9 @@ jobs:
       - name: Apply UI localization and keyboard patch
         run: python3 patch_ui.py source
 
+      - name: Fix module names after localization
+        run: python3 fix_build.py source
+
       - name: Build unsigned IPA
         uses: maxim-lobanov/setup-xcode@v1
         with:
