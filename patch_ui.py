@@ -4,18 +4,15 @@ import sys
 ROOT = Path(sys.argv[1])
 
 
-def edit(path, replacements):
+def replace_file(path, pairs):
     p = ROOT / path
     text = p.read_text(encoding='utf-8')
-    for old, new in replacements:
-        if old not in text:
-            print(f'warning: not found in {path}: {old[:60]!r}')
-            continue
+    for old, new in pairs:
         text = text.replace(old, new)
     p.write_text(text, encoding='utf-8')
 
-# Main navigation / Tools screen labels.
-edit('StikDebug/App/AppFeature.swift', [
+# Main navigation.
+replace_file('StikDebug/App/AppFeature.swift', [
     ('return "Apps"', 'return "應用程式"'),
     ('return "Scripts"', 'return "腳本"'),
     ('return "Tools"', 'return "工具"'),
@@ -36,13 +33,12 @@ edit('StikDebug/App/AppFeature.swift', [
     ('return "Configure StikDebug"', 'return "設定 StikDebug"'),
     ('return "Location Simulation"', 'return "位置模擬"'),
 ])
-
-edit('StikDebug/Views/ToolsView.swift', [
+replace_file('StikDebug/Views/ToolsView.swift', [
     ('.navigationTitle("Tools")', '.navigationTitle("工具")'),
 ])
 
-# Settings screen: translate all user-facing labels visible in the supplied screenshot.
-edit('StikDebug/Views/SettingsView.swift', [
+# Settings.
+replace_file('StikDebug/Views/SettingsView.swift', [
     ('Label("Star on GitHub", systemImage:', 'Label("在 GitHub 上加星", systemImage:'),
     ('Section("Pairing File")', 'Section("配對檔案")'),
     ('Label("Import Pairing File", systemImage:', 'Label("匯入配對檔案", systemImage:'),
@@ -77,27 +73,93 @@ edit('StikDebug/Views/SettingsView.swift', [
     ('("Failed to redownload DDI files: \\(error.localizedDescription)", true)', '("重新下載 DDI 失敗：\\(error.localizedDescription)", true)'),
 ])
 
-# Location simulation: add a real keyboard dismissal button for the number-pad field.
+# Location simulation: all visible labels + numeric keyboard dismissal.
 p = ROOT / 'StikDebug/Views/MapSelectionView.swift'
 text = p.read_text(encoding='utf-8')
 
-if 'import SwiftUI' in text and '@Environment(\\.dismiss)' not in text:
-    # Insert environment dismiss near the first State declarations.
-    marker = 'struct MapSelectionView: View {\n'
-    if marker in text:
-        text = text.replace(marker, marker + '    @Environment(\\.dismiss) private var dismissKeyboard\n', 1)
+marker = 'struct LocationSimulationView: View {\n'
+if '@Environment(\\.dismiss) private var dismissKeyboard' not in text and marker in text:
+    text = text.replace(marker, marker + '    @Environment(\\.dismiss) private var dismissKeyboard\n', 1)
 
-text = text.replace('Text("Speed:")', 'Text("速度：")')
-text = text.replace('"Speed",\n                    value:', '"速度",\n                    value:')
-text = text.replace('Text("km/h")', 'Text("公里/小時")')
-text = text.replace('.multilineTextAlignment(.center)\n                .onChange(of: customSpeedKmh)', '.multilineTextAlignment(.center)\n                .toolbar {\n                    ToolbarItemGroup(placement: .keyboard) {\n                        Spacer()\n                        Button("完成") { dismissKeyboard() }\n                    }\n                }\n                .onChange(of: customSpeedKmh)', 1)
+pairs = [
+    ('Text("Speed:")', 'Text("速度：")'),
+    ('"Speed",', '"速度",'),
+    ('Text("km/h")', 'Text("公里/小時")'),
+    ('"Start"', '"起點"'),
+    ('"End"', '"終點"'),
+    ('"Current"', '"目前位置"'),
+    ('"Pin"', '"標記"'),
+    ('"Import Coordinates"', '"匯入座標"'),
+    ('"Search location..."', '"搜尋位置…"'),
+    ('"OK"', '"確定"'),
+    ('"Save Bookmark"', '"儲存地點"'),
+    ('"Name"', '"名稱"'),
+    ('Button("Save")', 'Button("儲存")'),
+    ('"Enter a name for this location."', '"請輸入此位置的名稱。"'),
+    ('"Imported"', '"已匯入"'),
+    ('"Import Failed"', '"匯入失敗"'),
+    ('"Tap map to drop pin"', '"點擊地圖以放置標記"'),
+    ('Button("Stop", action: clear)', 'Button("停止", action: clear)'),
+    ('Button("Simulate Location", action: simulate)', 'Button("模擬位置", action: simulate)'),
+    ('Button("Play Route", action: simulateRoute)', 'Button("播放路線", action: simulateRoute)'),
+    ('Button("Reset", action: resetRouteSelection)', 'Button("重設", action: resetRouteSelection)'),
+    ('"Simulation Failed"', '"模擬失敗"'),
+    ('"Route Simulation Failed"', '"路線模擬失敗"'),
+    ('"Clear Failed"', '"清除失敗"'),
+    ('"Calculating route…"', '"正在計算路線…"'),
+    ('"Prefetching road speeds…"', '"正在取得道路速度…"'),
+    ('"Route ready."', '"路線已準備完成。"'),
+    ('"Pick both route endpoints to build the drive."', '"請選擇起點與終點以建立路線。"'),
+    ('"Plan a route from the toolbar."', '"請從工具列規劃路線。"'),
+    ('"Speed limit data © OpenStreetMap contributors (ODbL)"', '"限速資料 © OpenStreetMap 貢獻者（ODbL）"'),
+    ('"No drivable route was returned."', '"找不到可行駛的路線。"'),
+    ('"Route Failed"', '"路線失敗"'),
+    ('"Resolving location…"', '"正在解析位置…"'),
+    ('"Search for a start and destination to build the route."', '"搜尋起點與目的地以建立路線。"'),
+    ('"Simulate Route"', '"模擬路線"'),
+    ('Button("Use Route")', 'Button("使用此路線")'),
+    ('"Could not resolve that location."', '"無法解析該位置。"'),
+    ('"No Bookmarks"', '"沒有儲存的地點"'),
+    ('"Drop a pin on the map and tap the bookmark icon to save a location."', '"在地圖上放置標記，再點擊書籤圖示即可儲存位置。"'),
+    ('.navigationTitle("Bookmarks")', '.navigationTitle("已儲存地點")'),
+    ('"Could not simulate location (error \\(code)). Make sure the device is connected and the DDI is mounted."', '"無法模擬位置（錯誤 \\(code)）。請確認裝置已連線且 DDI 已掛載。"'),
+    ('"Could not start route simulation (error \\(code)). Make sure the device is connected and the DDI is mounted."', '"無法開始路線模擬（錯誤 \\(code)）。請確認裝置已連線且 DDI 已掛載。"'),
+    ('"Could not clear simulated location (error \\(code))."', '"無法清除模擬位置（錯誤 \\(code)）。"'),
+    ('"Could not continue route simulation (error \\(code))."', '"無法繼續路線模擬（錯誤 \\(code)）。"'),
+]
+for old, new in pairs:
+    text = text.replace(old, new)
 
-# If the user taps the slider or map, dismiss the numeric keyboard as well.
+# The actual speed editor is in LocationSimulationView; add a Done button to the numeric keyboard.
+needle = '.multilineTextAlignment(.center)\n                .onChange(of: customSpeedKmh)'
+if needle in text and 'Button("完成") { dismissKeyboard() }' not in text:
+    text = text.replace(needle, '.multilineTextAlignment(.center)\n                .toolbar {\n                    ToolbarItemGroup(placement: .keyboard) {\n                        Spacer()\n                        Button("完成") { dismissKeyboard() }\n                    }\n                }\n                .onChange(of: customSpeedKmh)', 1)
+
 text = text.replace('Slider(value: $customSpeedKmh, in: 1...120, step: 1)', 'Slider(value: $customSpeedKmh, in: 1...120, step: 1)\n                .onTapGesture { dismissKeyboard() }', 1)
-
-text = text.replace('Button("Stop", action: clear)', 'Button("停止", action: clear)')
-text = text.replace('Button("Play Route", action: simulateRoute)', 'Button("播放路線", action: simulateRoute)')
-text = text.replace('Button("Reset", action: resetRouteSelection)', 'Button("重設", action: resetRouteSelection)')
 p.write_text(text, encoding='utf-8')
 
-print('UI patch applied.')
+# Broad pass for remaining screens. Exact replacements only; no identifiers/function names are changed.
+all_pairs = [
+    ('Process Inspector', '程序檢視器'), ('Refresh', '重新整理'), ('Try Again', '再試一次'),
+    ('Overview', '總覽'), ('Total Processes', '程序總數'), ('No matching processes.', '沒有符合的程序。'),
+    ('Resume', '繼續'), ('Pause', '暫停'), ('Kill', '終止'), ('Confirm', '確認'),
+    ('Resuming Process', '正在繼續程序'), ('Pausing Process', '正在暫停程序'), ('Terminating Process', '正在終止程序'),
+    ('Resume Timed Out', '繼續程序逾時'), ('Pause Timed Out', '暫停程序逾時'), ('Kill Timed Out', '終止程序逾時'),
+    ('Resume Failed', '繼續程序失敗'), ('Pause Failed', '暫停程序失敗'), ('Kill Failed', '終止程序失敗'),
+    ('Process Resumed', '程序已繼續'), ('Process Paused', '程序已暫停'), ('Process Terminated', '程序已終止'),
+    ('Console Logs', '主控台日誌'), ('Device Information', '裝置資訊'), ('App Expiration', 'App 到期日'),
+    ('Installed Apps', '已安裝 App'), ('Search', '搜尋'), ('Close', '關閉'), ('Done', '完成'),
+    ('Cancel', '取消'), ('Save', '儲存'), ('Delete', '刪除'), ('Edit', '編輯'), ('Back', '返回'),
+    ('Next', '下一步'), ('Clear', '清除'), ('Import', '匯入'), ('Export', '匯出'),
+    ('Loading…', '載入中…'), ('Running', '執行中'), ('Stopped', '已停止'),
+    ('Connected', '已連線'), ('Disconnected', '未連線'),
+]
+for p in (ROOT / 'StikDebug').rglob('*.swift'):
+    text = p.read_text(encoding='utf-8')
+    original = text
+    for old, new in all_pairs:
+        text = text.replace(old, new)
+    if text != original:
+        p.write_text(text, encoding='utf-8')
+
+print('Traditional Chinese UI patch applied.')
