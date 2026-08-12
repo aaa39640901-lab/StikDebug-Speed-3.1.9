@@ -27,6 +27,9 @@ jobs:
       - name: Apply UI localization and keyboard patch
         run: python3 patch_ui.py source
 
+      - name: Apply arrival chime patch
+        run: python3 patch_arrival_chime.py source
+
       - name: Fix module names after localization
         run: python3 fix_build.py source
 
