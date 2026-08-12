@@ -1,0 +1,61 @@
+name: Build StikDebug 3.1.9 Speed IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout patch files
+        uses: actions/checkout@v4
+
+      - name: Download official StikDebug 3.1.9 source
+        run: |
+          curl -L --fail -o StikDebug-3.1.9.zip https://github.com/StikDebug/StikDebug/archive/refs/tags/3.1.9.zip
+          unzip -q StikDebug-3.1.9.zip
+          mv StikDebug-3.1.9 source
+
+      - name: Apply speed and Traditional Chinese patch
+        run: python3 patch_speed.py source
+
+      - name: Build unsigned IPA
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.6'
+
+      - name: Archive
+        run: |
+          cd source
+          xcodebuild clean archive \
+            -project StikDebug.xcodeproj \
+            -scheme "StikDebug" \
+            -configuration Debug \
+            -archivePath build/StikDebug.xcarchive \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_OPTIMIZATION_LEVEL="-Onone" \
+            IPHONEOS_DEPLOYMENT_TARGET=17.4
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R source/build/StikDebug.xcarchive/Products/Applications/StikDebug.app Payload/
+          zip -qr StikDebug-3.1.9-Speed-ZH-Hant.ipa Payload
+          rm -rf Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: StikDebug-3.1.9-Speed-ZH-Hant
+          path: StikDebug-3.1.9-Speed-ZH-Hant.ipa
+          retention-days: 30
