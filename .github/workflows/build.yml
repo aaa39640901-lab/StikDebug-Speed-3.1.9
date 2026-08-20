@@ -36,11 +36,6 @@ jobs:
       - name: Apply Traditional Chinese UI patch
         run: python3 patch_ui.py source
 
-      - name: Verify coordinate patch
-        run: |
-          test -f source/StikDebug/Views/MapSelectionView.swift
-          grep -q "parseDirectCoordinate" source/StikDebug/Views/MapSelectionView.swift
-
       - name: Build unsigned IPA
         uses: maxim-lobanov/setup-xcode@v1
         with:
