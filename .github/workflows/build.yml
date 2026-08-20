@@ -24,14 +24,11 @@ jobs:
           unzip -q StikDebug-3.1.9.zip
           mv StikDebug-3.1.9 source
 
-      - name: Apply coordinate input patch
+      - name: Apply exact coordinate input patch
         run: python3 patch_coordinate_input.py source
 
       - name: Apply speed and keyboard patch
         run: python3 patch_speed.py source
-
-      - name: Apply fast route and exact endpoint patch
-        run: python3 patch_route_fast.py source
 
       - name: Apply arrival chime patch
         run: python3 patch_arrival_chime.py source
