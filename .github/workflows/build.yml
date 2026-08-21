@@ -24,6 +24,9 @@ jobs:
       - name: Apply exact coordinate input patch
         run: python3 patch_coordinate_input.py source
 
+      - name: Apply A-to-B route bookmark patch
+        run: python3 patch_route_bookmarks.py source
+
       - name: Apply speed and keyboard patch
         run: python3 patch_speed.py source
 
