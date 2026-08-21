@@ -30,6 +30,9 @@ jobs:
       - name: Apply arrival chime patch
         run: python3 patch_arrival_chime.py source
 
+      - name: Apply Traditional Chinese UI patch
+        run: python3 patch_ui.py source
+
       - name: Build unsigned IPA
         uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -56,12 +59,12 @@ jobs:
         run: |
           mkdir -p Payload
           cp -R source/build/StikDebug.xcarchive/Products/Applications/StikDebug.app Payload/
-          zip -qr StikDebug-3.1.9-Speed-Coordinate.ipa Payload
+          zip -qr StikDebug-3.1.9-Speed-Coordinate-TC.ipa Payload
           rm -rf Payload
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: StikDebug-3.1.9-Speed-Coordinate
-          path: StikDebug-3.1.9-Speed-Coordinate.ipa
+          name: StikDebug-3.1.9-Speed-Coordinate-TC
+          path: StikDebug-3.1.9-Speed-Coordinate-TC.ipa
           retention-days: 30
