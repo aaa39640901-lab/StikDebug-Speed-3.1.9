@@ -9,6 +9,17 @@ if not MAP.exists():
 
 text = MAP.read_text(encoding="utf-8")
 
+# Route playback does not need a network-wide OpenStreetMap/Overpass query to
+# become playable. That query used the entire route bounding box and could be
+# extremely slow on long routes (for example Tokyo -> Kasukabe). Build the
+# playback samples immediately using the route's ETA-derived fallback speed.
+# This makes route loading depend only on MapKit's route calculation.
+text = text.replace(
+    "    static let pathSamplingDistance: CLLocationDistance = 10\n",
+    "    static let pathSamplingDistance: CLLocationDistance = 50\n",
+    1,
+)
+
 needle = "    @State private var isPrefetchingRouteSpeeds = false\n"
 insert = needle + "    @State private var customSpeedKmh: Double = 18\n"
 if "customSpeedKmh" not in text:
@@ -27,7 +38,7 @@ route_controls = '''    private var routeControls: some View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
-            if isLoadingRoute || isPrefetchingRouteSpeeds {
+            if isLoadingRoute {
                 ProgressView()
                     .controlSize(.small)
             } else if let routeSummaryText {
@@ -79,7 +90,6 @@ route_controls = '''    private var routeControls: some View {
                         !pairingExists ||
                         isBusy ||
                         isLoadingRoute ||
-                        isPrefetchingRouteSpeeds ||
                         routePlan == nil ||
                         routePlaybackSamples.isEmpty
                     )
@@ -93,6 +103,65 @@ route_controls = '''    private var routeControls: some View {
 
 '''
 text = text[:start] + route_controls + text[end:]
+
+# Replace refreshRoute's post-MapKit speed-prefetch phase with immediate local
+# sample generation. The route is therefore usable as soon as MapKit returns.
+old = '''                await MainActor.run {
+                    guard routeRequestID == requestID else { return }
+                    self.setRoutePlan(routePlan)
+                    isLoadingRoute = false
+                    isPrefetchingRouteSpeeds = true
+                    if let routePolyline {
+                        position = .rect(routePolyline.boundingMapRect)
+                    }
+                }
+
+                let fallbackSpeed = route.expectedTravelTime > 0
+                    ? route.distance / route.expectedTravelTime
+                    : 13.4
+
+                await MainActor.run {
+                    guard routeRequestID == requestID else { return }
+                    routeSpeedPrefetchTask?.cancel()
+                    routeSpeedPrefetchTask = Task.detached(priority: .utility) {
+                        let playbackSamples = await prefetchRoutePlaybackSamples(
+                            displayCoordinates: displayCoordinates,
+                            fallbackSpeedMetersPerSecond: fallbackSpeed
+                        )
+                        guard !Task.isCancelled else { return }
+                        await MainActor.run {
+                            guard routeRequestID == requestID else { return }
+                            routePlaybackSamples = playbackSamples
+                            isPrefetchingRouteSpeeds = false
+                        }
+                    }
+                }
+'''
+
+new = '''                let fallbackSpeed = route.expectedTravelTime > 0
+                    ? route.distance / route.expectedTravelTime
+                    : 13.4
+                let playbackSamples = buildPlaybackSamples(
+                    from: displayCoordinates,
+                    speedWays: [],
+                    fallbackSpeedMetersPerSecond: fallbackSpeed
+                )
+
+                await MainActor.run {
+                    guard routeRequestID == requestID else { return }
+                    self.setRoutePlan(routePlan)
+                    routePlaybackSamples = playbackSamples
+                    isLoadingRoute = false
+                    isPrefetchingRouteSpeeds = false
+                    if let routePolyline {
+                        position = .rect(routePolyline.boundingMapRect)
+                    }
+                }
+'''
+
+if old not in text:
+    raise SystemExit("Could not locate route speed prefetch block")
+text = text.replace(old, new, 1)
 
 start = text.find("    private func startRoutePlayback() {")
 end = text.find("    private func sendLocationUpdate", start)
@@ -158,87 +227,4 @@ playback = '''    private func startRoutePlayback() {
 '''
 text = text[:start] + playback + text[end:]
 MAP.write_text(text, encoding="utf-8")
-
-lproj = ROOT / "StikDebug" / "zh-Hant.lproj"
-lproj.mkdir(parents=True, exist_ok=True)
-strings = r'''"Apps" = "應用程式";
-"Scripts" = "腳本";
-"Tools" = "工具";
-"Console" = "主控台";
-"Device Info" = "裝置資訊";
-"App Expiry" = "App 到期日";
-"Processes" = "程序";
-"Location" = "定位";
-"Settings" = "設定";
-"Manage installed apps" = "管理已安裝的 App";
-"Manage and run JS scripts" = "管理與執行 JS 腳本";
-"Access additional tools" = "使用其他工具";
-"Live device logs" = "即時裝置日誌";
-"View detailed device metadata" = "查看詳細裝置資訊";
-"Check app expiration dates" = "查看 App 到期日";
-"Inspect running apps" = "查看執行中的 App";
-"Simulate GPS location" = "模擬 GPS 位置";
-"Configure StikDebug" = "設定 StikDebug";
-"Location Simulation" = "位置模擬";
-"Installed App" = "已安裝 App";
-"Running Process" = "執行中的程序";
-"Enable JIT" = "啟用 JIT";
-"Kill Process" = "結束程序";
-"App" = "App";
-"Process" = "程序";
-"Process ID" = "程序 ID";
-"Unknown error" = "未知錯誤";
-"An Error has Occurred" = "發生錯誤";
-"INFO" = "資訊";
-"ERROR" = "錯誤";
-"DEBUG" = "除錯";
-"WARNING" = "警告";
-"Copy Value" = "複製值";
-"Copy Key & Value" = "複製鍵和值";
-"Copy All (Text)" = "全部複製（文字）";
-"Copy All (CSV)" = "全部複製（CSV）";
-"Share…" = "分享…";
-"Import Pairing File" = "匯入配對檔案";
-"Export" = "匯出";
-"Export Failed" = "匯出失敗";
-"Export Complete" = "匯出完成";
-"Reload" = "重新載入";
-"Copied" = "已複製";
-"OK" = "確定";
-"Cancel" = "取消";
-"Save" = "儲存";
-"Name" = "名稱";
-"Stop" = "停止";
-"Reset" = "重設";
-"Play Route" = "播放路線";
-"Simulate Location" = "模擬位置";
-"Tap map to drop pin" = "點擊地圖放置標記";
-"Search location..." = "搜尋位置…";
-"Import Coordinates" = "匯入座標";
-"Start" = "起點";
-"End" = "終點";
-"Current" = "目前位置";
-"Pin" = "標記";
-"Speed:" = "速度：";
-"Speed" = "速度";
-"km/h" = "公里/小時";
-"Simulation speed" = "模擬速度";
-"Route ready." = "路線準備完成。";
-"Calculating route…" = "正在計算路線…";
-"Prefetching road speeds…" = "正在取得道路速限…";
-"Plan a route from the toolbar." = "請從工具列規劃路線。";
-"Pick both route endpoints to build the drive." = "請選擇路線起點與終點。";
-"Save Bookmark" = "儲存書籤";
-"Enter a name for this location." = "請輸入此位置的名稱。";
-"Import Failed" = "匯入失敗";
-"Route Failed" = "路線失敗";
-"Route Simulation Failed" = "路線模擬失敗";
-"Clear Failed" = "清除失敗";
-"Simulation Failed" = "模擬失敗";
-"Resolving location…" = "正在解析位置…";
-"Importing coordinates…" = "正在匯入座標…";
-"Speed limit data © OpenStreetMap contributors (ODbL)" = "速限資料 © OpenStreetMap 貢獻者（ODbL）";
-'''
-(lproj / "Localizable.strings").write_text(strings, encoding="utf-8")
-
-print("Patch applied successfully.")
+print("Fast route loading patch applied: no blocking Overpass prefetch, 50m route sampling.")
