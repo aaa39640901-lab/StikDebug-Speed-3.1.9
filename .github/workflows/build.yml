@@ -27,6 +27,9 @@ jobs:
       - name: Apply A-to-B route bookmark patch
         run: python3 patch_route_bookmarks.py source
 
+      - name: Apply A-to-B route bookmark reorder patch
+        run: python3 patch_route_bookmark_reorder.py source
+
       - name: Apply location bookmark reorder patch
         run: python3 patch_bookmark_reorder.py source
 
